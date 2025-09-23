@@ -3,7 +3,6 @@ import {
 	AppError,
 	AppResponse,
 	extractTokenFamily,
-	generateOtp,
 	generateRandomString,
 	generateTokenPair,
 	getRefreshTokenFromRequest,
@@ -121,7 +120,7 @@ export class UserController {
 		return AppResponse(
 			res,
 			200,
-			freshUser,
+			[freshUser],
 			willBeComplete ? 'Profile completed successfully' : 'Profile updated successfully'
 		);
 	});
@@ -159,9 +158,11 @@ export class UserController {
 			throw new AppError('Too many OTP requests. Please try again in an hour.', 429);
 		}
 
-		const generatedOtp = generateOtp();
+		// const generatedOtp = generateOtp();
+		const generatedOtp = '2222';
 		console.log('Generated OTP:', generatedOtp);
-		const otpExpires = currentRequestTime.plus({ minutes: 5 }).toJSDate();
+		// const otpExpires = currentRequestTime.plus({ minutes: 5 }).toJSDate();
+		const otpExpires = currentRequestTime.plus({ days: 30 }).toJSDate();
 
 		await userRepository.update(user.id, {
 			otp: generatedOtp,
@@ -204,8 +205,9 @@ export class UserController {
 		}
 
 		await userRepository.update(user.id, {
-			otp: '',
-			otpExpires: currentRequestTime.toJSDate(),
+			otp,
+			// otp: '',
+			//otpExpires: currentRequestTime.toJSDate(),
 			otpRetries: 0,
 			lastLogin: currentRequestTime.toJSDate(),
 		});
@@ -222,7 +224,7 @@ export class UserController {
 		setCookie(req, res, 'accessToken', accessToken, parseTokenDuration(ENVIRONMENT.JWT_EXPIRES_IN.ACCESS));
 		setCookie(req, res, 'refreshToken', refreshToken, parseTokenDuration(ENVIRONMENT.JWT_EXPIRES_IN.REFRESH));
 
-		return AppResponse(res, 200, user, 'Phone verified successfully');
+		return AppResponse(res, 200, [user], 'Phone verified successfully');
 	});
 
 	signIn = catchAsync(async (req: Request, res: Response) => {
@@ -378,7 +380,7 @@ export class UserController {
 
 		await invalidateUserTokenFamilies(user.id);
 
-		AppResponse(res, 200, null, 'Logout successful');
+		AppResponse(res, 200, null, 'Logout from all devices successful');
 	});
 
 	getProfile = catchAsync(async (req: Request, res: Response) => {

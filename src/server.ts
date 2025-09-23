@@ -25,8 +25,11 @@ import helmetCsp from 'helmet-csp';
 import hpp from 'hpp';
 import http from 'http';
 import morgan from 'morgan';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './swagger';
 import { startAllQueuesAndWorkers, stopAllQueuesAndWorkers } from './queues';
 import { userRouter } from './modules/user/routes';
+
 
 dotenv.config();
 /**
@@ -155,6 +158,9 @@ app.use('/api/v1/alive', (req: Request, res: Response) => {
 
 app.use('/api/v1/user', userRouter);
 //app.use('/api/v1/auth', authRouter);
+
+// Swagger documentation
+app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.all('/{*splat}', async (req, res) => {
 	logger.error('route not found ' + new Date(Date.now()) + ' ' + req.originalUrl);
