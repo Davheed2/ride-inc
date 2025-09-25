@@ -16,7 +16,13 @@ export const userModuleSchema = z
 		newPassword: passwordZ.optional(),
 		userId: uuidZ.optional(),
 		otp: z.string().optional(),
-		method: z.enum(['email', 'sms']).optional(),
+		// location: z
+		// 	.object({
+		// 		type: z.literal('Point'),
+		// 		coordinates: z.array(z.number()).length(2),
+		// 	})
+		// 	.optional(),
+		location: z.string().optional(),
 		code: z.string().optional(),
 	})
 	.strict();

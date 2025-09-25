@@ -1,3 +1,4 @@
+import { multerUpload } from '@/common/config';
 import { userController } from '../controller';
 import { protect } from '@/middlewares/protect';
 import express from 'express';
@@ -160,8 +161,8 @@ router.post('/sign-up', userController.signUp);
  * @openapi
  * /sign-in:
  *   post:
- *     summary: Sign in a user
- *     description: Authenticates a user by phone number, checking if the user exists, is not suspended or deleted, and has completed registration. If successful, prompts the user to request an OTP to complete the sign-in process.
+ *     summary: Sign in a user with email
+ *     description: Authenticates a user by email, checking if the user exists, is not suspended or deleted, and has completed registration. If successful, prompts the user to request an OTP to complete the sign-in process.
  *     tags:
  *       - User
  *     requestBody:
@@ -171,12 +172,12 @@ router.post('/sign-up', userController.signUp);
  *           schema:
  *             type: object
  *             properties:
- *               phone:
+ *               email:
  *                 type: string
- *                 example: "08163534417"
- *                 description: The user's phone number
+ *                 example: "uchennadavid2404@gmail.com"
+ *                 description: The user's email address
  *             required:
- *               - phone
+ *               - email
  *     responses:
  *       200:
  *         description: Sign-in initiated successfully, OTP request required or registration incomplete
@@ -257,6 +258,15 @@ router.post('/sign-up', userController.signUp);
  *                         type: boolean
  *                         example: true
  *                         description: Indicates if the user registration is complete
+ *                       location:
+ *                         type: string
+ *                         nullable: true
+ *                         example: null
+ *                         description: The user's location
+ *                       isNotificationEnabled:
+ *                         type: boolean
+ *                         example: true
+ *                         description: Indicates if notifications are enabled for the user
  *                 message:
  *                   type: string
  *                   example: "Please request OTP to complete sign in."
@@ -290,227 +300,10 @@ router.post('/sign-up', userController.signUp);
 router.post('/sign-in', userController.signIn);
 /**
  * @openapi
- * /update-user:
- *   post:
- *     summary: Update user details
- *     description: Updates the details of an existing user based on the provided user ID. The endpoint validates the user's existence, checks for account suspension or deletion, and ensures that the updated email or phone number does not already exist for another user. The registration completion status is updated if all required fields are provided.
- *     tags:
- *       - User
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               userId:
- *                 type: string
- *                 format: uuid
- *                 example: "3515368b-1c83-4fcf-b301-7db17bb7d0de"
- *                 description: The unique identifier of the user
- *               email:
- *                 type: string
- *                 nullable: true
- *                 example: "uchennadavid2404@gmail.com"
- *                 description: The user's email address
- *               firstName:
- *                 type: string
- *                 nullable: true
- *                 example: "David"
- *                 description: The user's first name
- *               lastName:
- *                 type: string
- *                 nullable: true
- *                 example: "David"
- *                 description: The user's last name
- *               phone:
- *                 type: string
- *                 nullable: true
- *                 example: "08163534417"
- *                 description: The user's phone number
- *             required:
- *               - userId
- *     responses:
- *       200:
- *         description: Profile updated or completed successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: success
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                         format: uuid
- *                         example: "3515368b-1c83-4fcf-b301-7db17bb7d0de"
- *                         description: The unique identifier of the user
- *                       email:
- *                         type: string
- *                         nullable: true
- *                         example: "uchennadavid2404@gmail.com"
- *                         description: The user's email address
- *                       phone:
- *                         type: string
- *                         nullable: true
- *                         example: "08163534417"
- *                         description: The user's phone number
- *                       firstName:
- *                         type: string
- *                         nullable: true
- *                         example: "David"
- *                         description: The user's first name
- *                       lastName:
- *                         type: string
- *                         nullable: true
- *                         example: "David"
- *                         description: The user's last name
- *                       otp:
- *                         type: string
- *                         nullable: true
- *                         example: null
- *                         description: One-time password for user verification
- *                       otpExpires:
- *                         type: string
- *                         format: date-time
- *                         nullable: true
- *                         example: null
- *                         description: Expiry timestamp for the OTP
- *                       photo:
- *                         type: string
- *                         nullable: true
- *                         example: null
- *                         description: URL or path to the user's profile photo
- *                       role:
- *                         type: string
- *                         example: "user"
- *                         description: The user's role
- *                       ipAddress:
- *                         type: string
- *                         example: "::1"
- *                         description: The IP address used during user registration
- *                       otpRetries:
- *                         type: integer
- *                         example: 0
- *                         description: Number of OTP retry attempts
- *                       isSuspended:
- *                         type: boolean
- *                         example: false
- *                         description: Indicates if the user account is suspended
- *                       isDeleted:
- *                         type: boolean
- *                         example: false
- *                         description: Indicates if the user account is deleted
- *                       lastLogin:
- *                         type: string
- *                         format: date-time
- *                         example: "2025-09-23T03:25:40.189Z"
- *                         description: Timestamp of the user's last login
- *                       created_at:
- *                         type: string
- *                         format: date-time
- *                         example: "2025-09-23T03:25:40.189Z"
- *                         description: Timestamp when the user account was created
- *                       updated_at:
- *                         type: string
- *                         format: date-time
- *                         example: "2025-09-23T03:33:18.332Z"
- *                         description: Timestamp when the user account was last updated
- *                       authProvider:
- *                         type: string
- *                         example: "local"
- *                         description: The authentication provider used
- *                       googleId:
- *                         type: string
- *                         nullable: true
- *                         example: null
- *                         description: The user's Google ID, if applicable
- *                       isRegistrationComplete:
- *                         type: boolean
- *                         example: true
- *                         description: Indicates if the user registration is complete
- *                 message:
- *                   type: string
- *                   example: "Profile completed successfully"
- *       400:
- *         description: Bad Request - User ID is required
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: error
- *                 message:
- *                   type: string
- *                   example: "User ID is required"
- *       401:
- *         description: Unauthorized - Account is suspended
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: error
- *                 message:
- *                   type: string
- *                   example: "Your account is currently suspended"
- *       404:
- *         description: Not Found - User or account not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: error
- *                 message:
- *                   type: string
- *                   example: "User not found"
- *       409:
- *         description: Conflict - User with the provided email or phone number already exists
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: error
- *                 message:
- *                   type: string
- *                   example: "User with this email already exists"
- *       500:
- *         description: Internal Server Error - Failed to update or retrieve user details
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: error
- *                 message:
- *                   type: string
- *                   example: "Failed to update user details"
- */
-router.post('/update-user', userController.updateUserDetails);
-/**
- * @openapi
  * /send-otp:
  *   post:
- *     summary: Send OTP for user verification
- *     description: Sends a one-time password (OTP) to the user's phone number via the specified method (SMS or WhatsApp). Validates the user's existence, phone number, account status, and OTP request limits before sending the OTP.
+ *     summary: Send OTP for user verification via email
+ *     description: Sends a one-time password (OTP) to the user's email address. Validates the user's existence, email address, account status, and OTP request limits before sending the OTP.
  *     tags:
  *       - User
  *     requestBody:
@@ -520,18 +313,12 @@ router.post('/update-user', userController.updateUserDetails);
  *           schema:
  *             type: object
  *             properties:
- *               phone:
+ *               email:
  *                 type: string
- *                 example: "08163534417"
- *                 description: The user's phone number
- *               method:
- *                 type: string
- *                 enum: ["sms", "whatsapp"]
- *                 example: "sms"
- *                 description: The method to send the OTP (SMS or WhatsApp)
+ *                 example: "uchennadavid2404@gmail.com"
+ *                 description: The user's email address
  *             required:
- *               - phone
- *               - method
+ *               - email
  *     responses:
  *       200:
  *         description: OTP sent successfully
@@ -549,10 +336,10 @@ router.post('/update-user', userController.updateUserDetails);
  *                   description: No data returned for this response
  *                 message:
  *                   type: string
- *                   example: "OTP sent via sms. Please verify to continue."
+ *                   example: "OTP sent. Please verify to continue."
  *                   description: Confirmation message indicating the OTP was sent
  *       400:
- *         description: Bad Request - Missing or invalid phone number or verification method
+ *         description: Bad Request - Missing email or no email associated with user
  *         content:
  *           application/json:
  *             schema:
@@ -563,7 +350,7 @@ router.post('/update-user', userController.updateUserDetails);
  *                   example: error
  *                 message:
  *                   type: string
- *                   example: "Phone number and verification method are required"
+ *                   example: "Email is required"
  *       401:
  *         description: Unauthorized - Account is suspended
  *         content:
@@ -609,8 +396,8 @@ router.post('/send-otp', userController.sendOtp);
  * @openapi
  * /verify-otp:
  *   post:
- *     summary: Verify OTP for user authentication
- *     description: Verifies the one-time password (OTP) provided by the user to complete the authentication process. Checks the user's existence, validates the OTP, and ensures it is not expired. Upon successful verification, generates access and refresh tokens, sets them as cookies, and updates user details.
+ *     summary: Verify OTP for user authentication via email
+ *     description: Verifies the one-time password (OTP) provided by the user to complete the authentication process using their email. Checks the user's existence, validates the OTP, and ensures it is not expired. Upon successful verification, clears the OTP, generates access and refresh tokens, sets them as cookies, and updates user details.
  *     tags:
  *       - User
  *     requestBody:
@@ -620,20 +407,20 @@ router.post('/send-otp', userController.sendOtp);
  *           schema:
  *             type: object
  *             properties:
- *               phone:
+ *               email:
  *                 type: string
- *                 example: "08163534417"
- *                 description: The user's phone number
+ *                 example: "uchennadavid2404@gmail.com"
+ *                 description: The user's email address
  *               otp:
  *                 type: string
- *                 example: "2222"
+ *                 example: "123456"
  *                 description: The one-time password sent to the user
  *             required:
- *               - phone
+ *               - email
  *               - otp
  *     responses:
  *       200:
- *         description: Phone verified successfully, tokens generated
+ *         description: OTP verified successfully, tokens generated
  *         content:
  *           application/json:
  *             schema:
@@ -672,17 +459,6 @@ router.post('/send-otp', userController.sendOtp);
  *                         nullable: true
  *                         example: "David"
  *                         description: The user's last name
- *                       otp:
- *                         type: string
- *                         nullable: true
- *                         example: "2222"
- *                         description: The one-time password used for verification
- *                       otpExpires:
- *                         type: string
- *                         format: date-time
- *                         nullable: true
- *                         example: "2025-10-23T03:37:32.171Z"
- *                         description: Expiry timestamp for the OTP
  *                       photo:
  *                         type: string
  *                         nullable: true
@@ -692,14 +468,6 @@ router.post('/send-otp', userController.sendOtp);
  *                         type: string
  *                         example: "user"
  *                         description: The user's role
- *                       ipAddress:
- *                         type: string
- *                         example: "::1"
- *                         description: The IP address used during user registration
- *                       otpRetries:
- *                         type: integer
- *                         example: 0
- *                         description: Number of OTP retry attempts
  *                       isSuspended:
  *                         type: boolean
  *                         example: false
@@ -708,49 +476,31 @@ router.post('/send-otp', userController.sendOtp);
  *                         type: boolean
  *                         example: false
  *                         description: Indicates if the user account is deleted
- *                       lastLogin:
- *                         type: string
- *                         format: date-time
- *                         example: "2025-09-23T03:40:07.155Z"
- *                         description: Timestamp of the user's last login
  *                       created_at:
  *                         type: string
  *                         format: date-time
  *                         example: "2025-09-23T03:25:40.189Z"
  *                         description: Timestamp when the user account was created
- *                       updated_at:
- *                         type: string
- *                         format: date-time
- *                         example: "2025-09-23T03:40:07.174Z"
- *                         description: Timestamp when the user account was last updated
- *                       authProvider:
- *                         type: string
- *                         example: "local"
- *                         description: The authentication provider used
- *                       googleId:
+ *                       location:
  *                         type: string
  *                         nullable: true
  *                         example: null
- *                         description: The user's Google ID, if applicable
- *                       isRegistrationComplete:
- *                         type: boolean
- *                         example: true
- *                         description: Indicates if the user registration is complete
+ *                         description: The user's location
  *                 message:
  *                   type: string
- *                   example: "Phone verified successfully"
+ *                   example: "OTP verified successfully"
  *         headers:
  *           Set-Cookie:
  *             schema:
  *               type: array
  *               items:
  *                 type: string
- *                 example: 
+ *                 example:
  *                   - "accessToken=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; Path=/; HttpOnly"
  *                   - "refreshToken=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; Path=/; HttpOnly"
  *               description: Sets the access and refresh tokens as cookies
  *       400:
- *         description: Bad Request - Missing phone number or OTP
+ *         description: Bad Request - Missing email or OTP
  *         content:
  *           application/json:
  *             schema:
@@ -761,7 +511,7 @@ router.post('/send-otp', userController.sendOtp);
  *                   example: error
  *                 message:
  *                   type: string
- *                   example: "Phone number and OTP are required"
+ *                   example: "Email and OTP are required"
  *       401:
  *         description: Unauthorized - Invalid or expired OTP
  *         content:
@@ -1032,6 +782,322 @@ router.post('/sign-out-all', userController.signOutFromAllDevices);
  *                   example: "User not found"
  */
 router.get('/profile', userController.getProfile);
+/**
+ * @openapi
+ * /update-user:
+ *   put:
+ *     summary: Update authenticated user details
+ *     description: Updates the details of the currently authenticated user. Validates the user's existence, checks for account suspension or deletion, and ensures that the updated email or phone number does not already exist for another user. The registration completion status is updated if all required fields are provided.
+ *     tags:
+ *       - User
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "uchennadavid2404@gmail.com"
+ *                 description: The user's email address
+ *               firstName:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "John"
+ *                 description: The user's first name
+ *               lastName:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "David"
+ *                 description: The user's last name
+ *               phone:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "08163534417"
+ *                 description: The user's phone number
+ *               location:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Lagos"
+ *                 description: The user's location
+ *               isNotificationEnabled:
+ *                 type: boolean
+ *                 nullable: true
+ *                 example: true
+ *                 description: Indicates if notifications are enabled for the user
+ *     responses:
+ *       200:
+ *         description: Profile updated or completed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         format: uuid
+ *                         example: "3515368b-1c83-4fcf-b301-7db17bb7d0de"
+ *                         description: The unique identifier of the user
+ *                       email:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "uchennadavid2404@gmail.com"
+ *                         description: The user's email address
+ *                       phone:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "08163534417"
+ *                         description: The user's phone number
+ *                       firstName:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "John"
+ *                         description: The user's first name
+ *                       lastName:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "David"
+ *                         description: The user's last name
+ *                       photo:
+ *                         type: string
+ *                         nullable: true
+ *                         example: null
+ *                         description: URL or path to the user's profile photo
+ *                       role:
+ *                         type: string
+ *                         example: "user"
+ *                         description: The user's role
+ *                       isSuspended:
+ *                         type: boolean
+ *                         example: false
+ *                         description: Indicates if the user account is suspended
+ *                       isDeleted:
+ *                         type: boolean
+ *                         example: false
+ *                         description: Indicates if the user account is deleted
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2025-09-23T03:25:40.189Z"
+ *                         description: Timestamp when the user account was created
+ *                       location:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "Lagos"
+ *                         description: The user's location
+ *                 message:
+ *                   type: string
+ *                   example: "Profile completed successfully"
+ *       400:
+ *         description: Bad Request - User not logged in
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: error
+ *                 message:
+ *                   type: string
+ *                   example: "Please log in again"
+ *       401:
+ *         description: Unauthorized - Account is suspended
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: error
+ *                 message:
+ *                   type: string
+ *                   example: "Your account is currently suspended"
+ *       404:
+ *         description: Not Found - User or account not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: error
+ *                 message:
+ *                   type: string
+ *                   example: "User not found"
+ *       409:
+ *         description: Conflict - User with the provided email or phone number already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: error
+ *                 message:
+ *                   type: string
+ *                   example: "User with this email already exists"
+ *       500:
+ *         description: Internal Server Error - Failed to update or retrieve user details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: error
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to update user details"
+ */
+router.post('/update-user', userController.updateUserDetails);
+/**
+ * @openapi
+ * /upload-profile-picture:
+ *   post:
+ *     summary: Upload user profile picture
+ *     description: Uploads a profile picture for the currently authenticated user. Validates user authentication, checks for the existence of the user, and ensures a file is provided. The file is uploaded to a storage service, and the user's profile is updated with the secure URL of the uploaded image.
+ *     tags:
+ *       - User
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: The profile picture file to upload
+ *             required:
+ *               - file (photo: form-data key)
+ *     responses:
+ *       200:
+ *         description: Profile picture updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         format: uuid
+ *                         example: "3515368b-1c83-4fcf-b301-7db17bb7d0de"
+ *                         description: The unique identifier of the user
+ *                       email:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "uchennadavid2404@gmail.com"
+ *                         description: The user's email address
+ *                       phone:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "08163534417"
+ *                         description: The user's phone number
+ *                       firstName:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "John"
+ *                         description: The user's first name
+ *                       lastName:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "David"
+ *                         description: The user's last name
+ *                       photo:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "https://pub-b3c115b60ec04ceaae8ac7360bf42530.r2.dev/profile-picture/1758781131611-image 13.png"
+ *                         description: URL of the user's profile picture
+ *                       role:
+ *                         type: string
+ *                         example: "user"
+ *                         description: The user's role
+ *                       isSuspended:
+ *                         type: boolean
+ *                         example: false
+ *                         description: Indicates if the user account is suspended
+ *                       isDeleted:
+ *                         type: boolean
+ *                         example: false
+ *                         description: Indicates if the user account is deleted
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2025-09-23T03:25:40.189Z"
+ *                         description: Timestamp when the user account was created
+ *                       location:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "Lagos"
+ *                         description: The user's location
+ *                 message:
+ *                   type: string
+ *                   example: "Profile picture updated successfully"
+ *       400:
+ *         description: Bad Request - User not logged in or file is missing
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: error
+ *                 message:
+ *                   type: string
+ *                   example: "Please log in again"
+ *       404:
+ *         description: Not Found - User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: error
+ *                 message:
+ *                   type: string
+ *                   example: "User not found"
+ *       500:
+ *         description: Internal Server Error - Failed to update profile picture
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: error
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to update profile picture"
+ */
+router.post('/upload-profile-picture', multerUpload.single('photo'), userController.uploadProfilePicture);
 // router.get('/all', userController.getAllUsers);
 // router.post('/suspend-user', userController.suspendUser);
 // router.post('/make-admin', userController.makeAdmin);

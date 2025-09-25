@@ -12,6 +12,8 @@ export interface IUser {
 	photo: string;
 	authProvider: AuthProvider;
 	googleId?: string;
+	location: string;
+	isNotificationEnabled: boolean;
 	role: Role;
 	otpRetries: number;
 	lastLogin: Date;

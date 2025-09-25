@@ -1,4 +1,4 @@
 export * from './baseTemplate';
-export * from './loginEmail';
+export * from './otpEmail';
 export * from './forgotPassword';
 export * from './resetPassword';

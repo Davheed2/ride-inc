@@ -5,7 +5,7 @@ export const baseTemplate = (template: string): string => {
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <meta name="x-apple-disable-message-reformatting" />
       <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-      <title>100minds</title>
+      <title>Ride</title>
       <style type="text/css" rel="stylesheet" media="all">
         /* Base Styles */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -115,7 +115,7 @@ export const baseTemplate = (template: string): string => {
               <tr>
                 <td class="email-masthead">
                   <img src="https://res.cloudinary.com/dnhu3eqn5/image/upload/v1741486702/100minds_r7zz76.jpg" 
-                       alt="100minds logo" 
+                       alt="ride's logo" 
                        width="100" 
                        height="auto" 
                        style="display: block; margin: 0 auto;">
@@ -143,12 +143,12 @@ export const baseTemplate = (template: string): string => {
                     <tr>
                       <td class="content-cell-footer">
                         <p>
-                          This email was sent to you by 100minds. By using our services, you agree to our
+                          This email was sent to you by ride inc. By using our services, you agree to our
                         </p>
                         <p>
                           <a href="https://helpcenter.com">customer agreements</a>.
                         </p>
-                        <p>&copy; 100minds ${new Date().getFullYear()}. All rights reserved.</p>
+                        <p>&copy; ride inc ${new Date().getFullYear()}. All rights reserved.</p>
                       </td>
                     </tr>
                   </table>

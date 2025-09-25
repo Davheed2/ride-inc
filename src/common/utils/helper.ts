@@ -3,7 +3,7 @@ import { randomBytes, randomInt, createHash } from 'crypto';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { encode } from 'hi-base32';
 import { ENVIRONMENT } from '../config';
-import { IHashData, ITokenFamily, LoginEmailData } from '../interfaces';
+import { IHashData, ITokenFamily, OtpEmailData } from '../interfaces';
 import type { Response, Request } from 'express';
 import { promisify } from 'util';
 import otpGenerator from 'otp-generator';
@@ -62,6 +62,11 @@ const toJSON = <T extends object>(obj: T | T[], excludeFields: (keyof T)[] = [])
 		'passwordResetRetries',
 		'ownerId',
 		'otpExpires',
+		'otpRetries',
+		'authProvider',
+		'googleId',
+		'isRegistrationComplete',
+		'isNotificationEnabled'
 	] as (keyof T)[];
 
 	// Use provided exclusions or default ones
@@ -456,8 +461,8 @@ const getRefreshTokenFromRequest = (req: Request): string | null => {
 };
 
 
-const sendLoginEmail = async (email: string, name: string, otp: string): Promise<void> => {
-	const emailData: LoginEmailData = {
+const sendOtpEmail = async (email: string, name: string, otp: string): Promise<void> => {
+	const emailData: OtpEmailData = {
 		to: email,
 		priority: 'high',
 		name,
@@ -465,7 +470,7 @@ const sendLoginEmail = async (email: string, name: string, otp: string): Promise
 	};
 
 	addEmailToQueue({
-		type: 'loginEmail',
+		type: 'otpEmail',
 		data: emailData,
 	});
 };
@@ -494,7 +499,7 @@ export {
 	parseTimeSpent,
 	formatDuration,
 	generateOtp,
-	sendLoginEmail,
+	sendOtpEmail,
 	getTokenFamilyKey,
 	getUsedTokenKey,
 	getUserFamiliesKey,

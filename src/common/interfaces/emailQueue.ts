@@ -3,7 +3,7 @@ export interface CommonDataFields {
 	priority: string;
 }
 
-export interface LoginEmailData extends CommonDataFields {
+export interface OtpEmailData extends CommonDataFields {
 	name: string;
 	otp: string;
 }
@@ -17,6 +17,6 @@ export interface ResetPasswordData extends CommonDataFields {
 }
 
 export type EmailJobData =
-	| { type: 'loginEmail'; data: LoginEmailData }
+	| { type: 'otpEmail'; data: OtpEmailData }
 	| { type: 'forgotPassword'; data: ForgotPasswordData }
 	| { type: 'resetPassword'; data: ResetPasswordData };

@@ -1,10 +1,10 @@
 import { baseTemplate } from './baseTemplate';
 
-export const loginEmail = (data: { name: string; otp: string }) => {
+export const otpEmail = (data: { name: string; otp: string }) => {
 	return baseTemplate(
 		`<h2>Hello, ${data.name}!</h2>
         <p>
-            We received a request to log in to your 100minds account. To proceed, please use the One-Time Password (OTP) below:
+            We received a request to log in to your Ride account. To proceed, please use the One-Time Password (OTP) below:
         </p>
 
         <table class="body-action" align="center" width="100%" cellpadding="0" cellspacing="0">
@@ -33,6 +33,6 @@ export const loginEmail = (data: { name: string; otp: string }) => {
             This OTP is valid for *5 minutes*. If you did not attempt to log in, please ignore this email or contact our support team immediately.
         </p>
 
-        <p>Thanks,<br />The 100minds Team</p>`
+        <p>Thanks,<br />The Ride Inc Team</p>`
 	);
 };

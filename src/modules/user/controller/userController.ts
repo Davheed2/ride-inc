@@ -3,14 +3,17 @@ import {
 	AppError,
 	AppResponse,
 	extractTokenFamily,
+	generateOtp,
 	generateRandomString,
 	generateTokenPair,
 	getRefreshTokenFromRequest,
 	invalidateTokenFamily,
 	invalidateUserTokenFamilies,
 	parseTokenDuration,
+	sendOtpEmail,
 	setCookie,
 	toJSON,
+	uploadPictureFile,
 } from '@/common/utils';
 import { catchAsync } from '@/middlewares';
 import { userRepository } from '@/modules/user/repository';
@@ -61,87 +64,19 @@ export class UserController {
 		return AppResponse(res, 201, toJSON([user]), 'User created successfully');
 	});
 
-	updateUserDetails = catchAsync(async (req: Request, res: Response) => {
-		const { email, firstName, lastName, phone, userId } = req.body;
-
-		if (!userId) {
-			throw new AppError('User ID is required', 400);
-		}
-
-		const user = await userRepository.findById(userId);
-		if (!user) {
-			throw new AppError('User not found', 404);
-		}
-
-		if (user.isSuspended) {
-			throw new AppError('Your account is currently suspended', 401);
-		}
-		if (user.isDeleted) {
-			throw new AppError('Account not found', 404);
-		}
-
-		if (email && email !== user.email) {
-			const existingEmailUser = await userRepository.findByEmail(email);
-			if (existingEmailUser && existingEmailUser.id !== user.id) {
-				throw new AppError('User with this email already exists', 409);
-			}
-		}
-
-		if (phone && phone !== user.phone) {
-			const existingPhoneUser = await userRepository.findByPhone(phone);
-			if (existingPhoneUser && existingPhoneUser.id !== user.id) {
-				throw new AppError('User with this phone number already exists', 409);
-			}
-		}
-
-		const updateData: Partial<IUser> = {};
-		if (email !== undefined) updateData.email = email;
-		if (firstName !== undefined) updateData.firstName = firstName;
-		if (lastName !== undefined) updateData.lastName = lastName;
-		if (phone !== undefined) updateData.phone = phone;
-
-		const updatedUser = { ...user, ...updateData };
-		const willBeComplete = !!(updatedUser.email && updatedUser.firstName && updatedUser.lastName && updatedUser.phone);
-
-		if (willBeComplete) {
-			updateData.isRegistrationComplete = true;
-		}
-
-		const updateUser = await userRepository.update(user.id, updateData);
-		if (!updateUser) {
-			throw new AppError('Failed to update user details', 500);
-		}
-
-		const freshUser = await userRepository.findById(user.id);
-		if (!freshUser) {
-			throw new AppError('Failed to retrieve updated user', 500);
-		}
-
-		return AppResponse(
-			res,
-			200,
-			[freshUser],
-			willBeComplete ? 'Profile completed successfully' : 'Profile updated successfully'
-		);
-	});
-
 	sendOtp = catchAsync(async (req: Request, res: Response) => {
-		const { phone, method } = req.body;
+		const { email } = req.body;
 
-		if (!phone || !method) {
-			throw new AppError('Phone number and verification method are required', 400);
+		if (!email) {
+			throw new AppError('Email is required', 400);
 		}
 
-		if (!['sms', 'whatsapp'].includes(method)) {
-			throw new AppError('Invalid verification method. Use "sms" or "whatsapp"', 400);
-		}
-
-		const user = await userRepository.findByPhone(phone);
+		const user = await userRepository.findByEmail(email);
 		if (!user) {
 			throw new AppError('User not found', 404);
 		}
-		if (!user.phone) {
-			throw new AppError('No phone number associated with this user', 400);
+		if (!user.email) {
+			throw new AppError('No email address associated with this user', 400);
 		}
 		if (user.isSuspended) {
 			throw new AppError('Your account is currently suspended', 401);
@@ -158,11 +93,9 @@ export class UserController {
 			throw new AppError('Too many OTP requests. Please try again in an hour.', 429);
 		}
 
-		// const generatedOtp = generateOtp();
-		const generatedOtp = '2222';
+		const generatedOtp = generateOtp();
 		console.log('Generated OTP:', generatedOtp);
-		// const otpExpires = currentRequestTime.plus({ minutes: 5 }).toJSDate();
-		const otpExpires = currentRequestTime.plus({ days: 30 }).toJSDate();
+		const otpExpires = currentRequestTime.plus({ minutes: 5 }).toJSDate();
 
 		await userRepository.update(user.id, {
 			otp: generatedOtp,
@@ -170,25 +103,20 @@ export class UserController {
 			otpRetries: (user.otpRetries || 0) + 1,
 		});
 
-		if (method === 'sms') {
-			// await sendSmsOtp(user.phone, generatedOtp);
-			console.log(`SMS OTP sent to ${user.phone}: ${generatedOtp}`);
-		} else {
-			// await sendWhatsAppOtp(user.phone, generatedOtp);
-			console.log(`WhatsApp OTP sent to ${user.phone}: ${generatedOtp}`);
-		}
+		await sendOtpEmail(user.email, user.firstName, generatedOtp);
+		console.log(`OTP sent to ${user.email}: ${generatedOtp}`);
 
-		return AppResponse(res, 200, null, `OTP sent via ${method}. Please verify to continue.`);
+		return AppResponse(res, 200, null, `OTP sent. Please verify to continue.`);
 	});
 
 	verifyOtp = catchAsync(async (req: Request, res: Response) => {
-		const { phone, otp } = req.body;
+		const { email, otp } = req.body;
 
-		if (!phone || !otp) {
-			throw new AppError('Phone number and OTP are required', 400);
+		if (!email || !otp) {
+			throw new AppError('Email and OTP are required', 400);
 		}
 
-		const user = await userRepository.findByPhone(phone);
+		const user = await userRepository.findByEmail(email);
 		if (!user) {
 			throw new AppError('User not found', 404);
 		}
@@ -205,9 +133,8 @@ export class UserController {
 		}
 
 		await userRepository.update(user.id, {
-			otp,
-			// otp: '',
-			//otpExpires: currentRequestTime.toJSDate(),
+			otp: '',
+			otpExpires: currentRequestTime.toJSDate(),
 			otpRetries: 0,
 			lastLogin: currentRequestTime.toJSDate(),
 		});
@@ -224,17 +151,17 @@ export class UserController {
 		setCookie(req, res, 'accessToken', accessToken, parseTokenDuration(ENVIRONMENT.JWT_EXPIRES_IN.ACCESS));
 		setCookie(req, res, 'refreshToken', refreshToken, parseTokenDuration(ENVIRONMENT.JWT_EXPIRES_IN.REFRESH));
 
-		return AppResponse(res, 200, [user], 'Phone verified successfully');
+		return AppResponse(res, 200, toJSON([user]), 'OTP verified successfully');
 	});
 
 	signIn = catchAsync(async (req: Request, res: Response) => {
-		const { phone } = req.body;
+		const { email } = req.body;
 
-		if (!phone) {
+		if (!email) {
 			throw new AppError('Incomplete login data', 401);
 		}
 
-		const user = await userRepository.findByPhone(phone);
+		const user = await userRepository.findByEmail(email);
 		if (!user) {
 			throw new AppError('User not found', 404);
 		}
@@ -396,6 +323,105 @@ export class UserController {
 		}
 
 		return AppResponse(res, 200, toJSON([extinguishUser]), 'Profile retrieved successfully');
+	});
+
+	updateUserDetails = catchAsync(async (req: Request, res: Response) => {
+		const { user } = req;
+		const { email, firstName, lastName, phone, location, isNotificationEnabled } = req.body;
+
+		if (!user) {
+			throw new AppError('Please log in again', 400);
+		}
+
+		const extinguishUser = await userRepository.findById(user.id);
+		if (!extinguishUser) {
+			throw new AppError('User not found', 404);
+		}
+
+		if (extinguishUser.isSuspended) {
+			throw new AppError('Your account is currently suspended', 401);
+		}
+		if (extinguishUser.isDeleted) {
+			throw new AppError('Account not found', 404);
+		}
+
+		if (email && email !== extinguishUser.email) {
+			const existingEmailUser = await userRepository.findByEmail(email);
+			if (existingEmailUser && existingEmailUser.id !== extinguishUser.id) {
+				throw new AppError('User with this email already exists', 409);
+			}
+		}
+
+		if (phone && phone !== extinguishUser.phone) {
+			const existingPhoneUser = await userRepository.findByPhone(phone);
+			if (existingPhoneUser && existingPhoneUser.id !== extinguishUser.id) {
+				throw new AppError('User with this phone number already exists', 409);
+			}
+		}
+
+		const updateData: Partial<IUser> = {};
+		if (email !== undefined) updateData.email = email;
+		if (firstName !== undefined) updateData.firstName = firstName;
+		if (lastName !== undefined) updateData.lastName = lastName;
+		if (phone !== undefined) updateData.phone = phone;
+		if (location !== undefined) updateData.location = location;
+		if (isNotificationEnabled !== undefined) updateData.isNotificationEnabled = isNotificationEnabled;
+
+		const updatedUser = { ...user, ...updateData };
+		const willBeComplete = !!(updatedUser.email && updatedUser.firstName && updatedUser.lastName && updatedUser.phone);
+
+		if (willBeComplete) {
+			updateData.isRegistrationComplete = true;
+		}
+
+		const updateUser = await userRepository.update(extinguishUser.id, updateData);
+		if (!updateUser) {
+			throw new AppError('Failed to update user details', 500);
+		}
+
+		const freshUser = await userRepository.findById(extinguishUser.id);
+		if (!freshUser) {
+			throw new AppError('Failed to retrieve updated user', 500);
+		}
+
+		return AppResponse(
+			res,
+			200,
+			toJSON([freshUser]),
+			willBeComplete ? 'Profile completed successfully' : 'Profile updated successfully'
+		);
+	});
+
+	uploadProfilePicture = catchAsync(async (req: Request, res: Response) => {
+		const { user } = req;
+		const { file } = req;
+
+		if (!user) {
+			throw new AppError('Please log in again', 400);
+		}
+		if (!file) {
+			throw new AppError('File is required', 400);
+		}
+
+		const extinguishUser = await userRepository.findById(user.id);
+		if (!extinguishUser) {
+			throw new AppError('User not found', 404);
+		}
+
+		const { secureUrl } = await uploadPictureFile({
+			fileName: `profile-picture/${Date.now()}-${file.originalname}`,
+			buffer: file.buffer,
+			mimetype: file.mimetype,
+		});
+
+		const updateProfile = await userRepository.update(user.id, {
+			photo: secureUrl,
+		});
+		if (!updateProfile) {
+			throw new AppError('Failed to update profile picture', 500);
+		}
+
+		return AppResponse(res, 200, toJSON(updateProfile), 'Profile picture updated successfully');
 	});
 
 	// getAllUsers = catchAsync(async (req: Request, res: Response) => {
