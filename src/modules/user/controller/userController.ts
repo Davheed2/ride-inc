@@ -179,34 +179,168 @@ export class UserController {
 		return AppResponse(res, 200, toJSON([user]), 'Please request OTP to complete sign in.');
 	});
 
+	//for web alone
+	// googleOAuth = catchAsync(async (req: Request, res: Response) => {
+	// 	const { code } = req.body;
+
+	// 	if (!code) {
+	// 		throw new AppError('Authorization code is required', 400);
+	// 	}
+
+	// 	// Exchange code for tokens
+	// 	const tokenResponse = await axios.post(
+	// 		'https://oauth2.googleapis.com/token',
+	// 		new URLSearchParams({
+	// 			client_id: ENVIRONMENT.GOOGLE.CLIENT_ID,
+	// 			client_secret: ENVIRONMENT.GOOGLE.CLIENT_SECRET,
+	// 			code,
+	// 			grant_type: 'authorization_code',
+	// 			redirect_uri: ENVIRONMENT.GOOGLE.REDIRECT_URI,
+	// 		}),
+	// 		{
+	// 			headers: {
+	// 				'Content-Type': 'application/x-www-form-urlencoded',
+	// 				rideinc: true,
+	// 			},
+	// 		}
+	// 	);
+
+	// 	const tokens = tokenResponse.data as { access_token: string; [key: string]: unknown };
+
+	// 	// Get user info from Google
+	// 	const userInfoResponse = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+	// 		headers: {
+	// 			Authorization: `Bearer ${tokens.access_token}`,
+	// 		},
+	// 	});
+
+	// 	const googleUser = userInfoResponse.data as IUserGoogle;
+	// 	if (!googleUser.email) {
+	// 		throw new AppError('Google account has no email associated', 400);
+	// 	}
+
+	// 	let user = await userRepository.findByEmail(googleUser.email);
+	// 	const currentTime = DateTime.now();
+
+	// 	if (!user) {
+	// 		[user] = await userRepository.create({
+	// 			email: googleUser.email,
+	// 			firstName: googleUser.given_name || '',
+	// 			lastName: googleUser.family_name || '',
+	// 			googleId: googleUser.id,
+	// 			authProvider: AuthProvider.Google,
+	// 		});
+	// 	} else {
+	// 		if (user.isSuspended) {
+	// 			throw new AppError('Your account is currently suspended', 401);
+	// 		}
+	// 		if (user.isDeleted) {
+	// 			throw new AppError('Account not found', 404);
+	// 		}
+
+	// 		await userRepository.update(user.id, {
+	// 			firstName: googleUser.given_name || user.firstName,
+	// 			lastName: googleUser.family_name || user.lastName,
+	// 			googleId: googleUser.id,
+	// 			lastLogin: currentTime.toJSDate(),
+	// 		});
+	// 	}
+
+	// 	if (!user) {
+	// 		throw new AppError('User not found', 404);
+	// 	}
+	// 	const { accessToken, refreshToken } = await generateTokenPair(user.id);
+
+	// 	setCookie(req, res, 'accessToken', accessToken, parseTokenDuration(ENVIRONMENT.JWT_EXPIRES_IN.ACCESS));
+	// 	setCookie(req, res, 'refreshToken', refreshToken, parseTokenDuration(ENVIRONMENT.JWT_EXPIRES_IN.REFRESH));
+
+	// 	return AppResponse(res, 200, toJSON([user]), 'Successfully authenticated with Google');
+	// });
+
+	// getGoogleAuthUrl = catchAsync(async (req: Request, res: Response) => {
+	// 	const state = generateRandomString();
+
+	// 	const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+	// 	authUrl.searchParams.set('client_id', ENVIRONMENT.GOOGLE.CLIENT_ID);
+	// 	authUrl.searchParams.set('redirect_uri', ENVIRONMENT.GOOGLE.REDIRECT_URI);
+	// 	authUrl.searchParams.set('response_type', 'code');
+	// 	authUrl.searchParams.set('scope', 'openid email profile');
+	// 	authUrl.searchParams.set('state', state);
+	// 	authUrl.searchParams.set('access_type', 'offline');
+	// 	authUrl.searchParams.set('prompt', 'consent');
+
+	// 	return AppResponse(res, 200, { authUrl: authUrl.toString(), state }, 'Google auth URL generated');
+	// });
+
 	googleOAuth = catchAsync(async (req: Request, res: Response) => {
-		const { code } = req.body;
+		const { code, platform } = req.body;
 
 		if (!code) {
 			throw new AppError('Authorization code is required', 400);
 		}
 
-		// Exchange code for tokens
-		const tokenResponse = await axios.post(
-			'https://oauth2.googleapis.com/token',
-			new URLSearchParams({
-				client_id: ENVIRONMENT.GOOGLE.CLIENT_ID,
-				client_secret: ENVIRONMENT.GOOGLE.CLIENT_SECRET,
-				code,
-				grant_type: 'authorization_code',
-				redirect_uri: ENVIRONMENT.GOOGLE.REDIRECT_URI,
-			}),
-			{
-				headers: {
-					'Content-Type': 'application/x-www-form-urlencoded',
-					rideinc: true,
-				},
-			}
-		);
+		if (!platform || !['web', 'expo', 'expo-dev', 'android', 'ios'].includes(platform)) {
+			throw new AppError('Valid platform (web, expo, expo-dev, android, ios) is required', 400);
+		}
 
-		const tokens = tokenResponse.data as { access_token: string; [key: string]: unknown };
+		let clientId: string;
+		let clientSecret: string;
+		let redirectUri: string;
 
-		// Get user info from Google
+		switch (platform) {
+			case 'web':
+				clientId = ENVIRONMENT.GOOGLE.WEB_CLIENT_ID;
+				clientSecret = ENVIRONMENT.GOOGLE.WEB_CLIENT_SECRET;
+				redirectUri = ENVIRONMENT.GOOGLE.WEB_REDIRECT_URI;
+				break;
+			case 'expo':
+			case 'expo-dev':
+				clientId = ENVIRONMENT.GOOGLE.WEB_CLIENT_ID;
+				clientSecret = ENVIRONMENT.GOOGLE.WEB_CLIENT_SECRET;
+				redirectUri = ENVIRONMENT.GOOGLE.EXPO_REDIRECT_URI; // https://auth.expo.io/@username/slug
+				break;
+			case 'android':
+				clientId = ENVIRONMENT.GOOGLE.ANDROID_CLIENT_ID || ENVIRONMENT.GOOGLE.WEB_CLIENT_ID;
+				clientSecret = ENVIRONMENT.GOOGLE.ANDROID_CLIENT_SECRET || '';
+				redirectUri = ENVIRONMENT.GOOGLE.ANDROID_REDIRECT_URI || '';
+				break;
+			case 'ios':
+				clientId = ENVIRONMENT.GOOGLE.IOS_CLIENT_ID || ENVIRONMENT.GOOGLE.WEB_CLIENT_ID;
+				clientSecret = ENVIRONMENT.GOOGLE.IOS_CLIENT_SECRET || '';
+				redirectUri = ENVIRONMENT.GOOGLE.IOS_REDIRECT_URI || '';
+				break;
+			default:
+				throw new AppError('Invalid platform', 400);
+		}
+
+		const tokenParams: Record<string, string> = {
+			client_id: clientId,
+			code,
+			grant_type: 'authorization_code',
+		};
+
+		// Only add client_secret and redirect_uri for web/expo platforms
+		if (['web', 'expo', 'expo-dev'].includes(platform)) {
+			tokenParams.client_secret = clientSecret;
+			tokenParams.redirect_uri = redirectUri;
+		} else if (platform === 'ios' && redirectUri) {
+			// iOS might need redirect_uri in some cases
+			tokenParams.redirect_uri = redirectUri;
+		}
+
+		const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', new URLSearchParams(tokenParams), {
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded',
+				rideinc: true,
+			},
+		});
+
+		const tokens = tokenResponse.data as {
+			access_token: string;
+			id_token?: string;
+			[key: string]: unknown;
+		};
+
 		const userInfoResponse = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
 			headers: {
 				Authorization: `Bearer ${tokens.access_token}`,
@@ -226,6 +360,7 @@ export class UserController {
 				email: googleUser.email,
 				firstName: googleUser.given_name || '',
 				lastName: googleUser.family_name || '',
+				photo: googleUser.picture || '',
 				googleId: googleUser.id,
 				authProvider: AuthProvider.Google,
 			});
@@ -237,10 +372,43 @@ export class UserController {
 				throw new AppError('Account not found', 404);
 			}
 
+			//// dynamic oauth message based on provider
+			// if (user.authProvider !== AuthProvider.Google) {
+			// 	const providerMessages: Record<string, string> = {
+			// 		[AuthProvider.Local]:
+			// 			'This email is already registered. Please sign in with your email and password instead.',
+			// 		[AuthProvider.Facebook]: 'This email is already registered. Please sign in with Facebook instead.',
+			// 		[AuthProvider.Apple]: 'This email is already registered. Please sign in with Apple instead.',
+			// 	};
+
+			// 	const message =
+			// 		providerMessages[user.authProvider] ||
+			// 		'This email is already registered. Please use your original sign-in method.';
+
+			// 	throw new AppError(message, 400);
+			// }
+
+			if (user.authProvider !== AuthProvider.Google) {
+				// Option 1: Direct and clear (Most common)
+				// throw new AppError(
+				// 	'This email is already registered. Please sign in with your email and password instead.',
+				// 	400
+				// );
+				// Option 2: More helpful with action
+				throw new AppError(
+					'An account with this email already exists. Please sign in using your password, or reset it if you forgot.',
+					400
+				);
+
+				// Option 3: Security-focused (like GitHub, Google)
+				// throw new AppError('This email is already associated with an account. Please use your original sign-in method.', 400);
+			}
+
 			await userRepository.update(user.id, {
 				firstName: googleUser.given_name || user.firstName,
 				lastName: googleUser.family_name || user.lastName,
 				googleId: googleUser.id,
+				photo: googleUser.picture || user.photo,
 				lastLogin: currentTime.toJSDate(),
 			});
 		}
@@ -248,6 +416,7 @@ export class UserController {
 		if (!user) {
 			throw new AppError('User not found', 404);
 		}
+
 		const { accessToken, refreshToken } = await generateTokenPair(user.id);
 
 		setCookie(req, res, 'accessToken', accessToken, parseTokenDuration(ENVIRONMENT.JWT_EXPIRES_IN.ACCESS));
@@ -257,18 +426,60 @@ export class UserController {
 	});
 
 	getGoogleAuthUrl = catchAsync(async (req: Request, res: Response) => {
+		const { platform = 'web' } = req.query;
+
+		if (!['web', 'expo', 'expo-dev', 'android', 'ios'].includes(platform as string)) {
+			throw new AppError('Valid platform (web, expo, expo-dev, android, ios) is required', 400);
+		}
+
 		const state = generateRandomString();
+		let clientId: string;
+		let redirectUri: string;
+
+		switch (platform) {
+			case 'web':
+				clientId = ENVIRONMENT.GOOGLE.WEB_CLIENT_ID;
+				redirectUri = ENVIRONMENT.GOOGLE.WEB_REDIRECT_URI;
+				break;
+			case 'expo':
+			case 'expo-dev':
+				clientId = ENVIRONMENT.GOOGLE.WEB_CLIENT_ID; // Can reuse web client
+				redirectUri = ENVIRONMENT.GOOGLE.EXPO_REDIRECT_URI;
+				break;
+			case 'android':
+				clientId = ENVIRONMENT.GOOGLE.ANDROID_CLIENT_ID || ENVIRONMENT.GOOGLE.WEB_CLIENT_ID;
+				redirectUri = ENVIRONMENT.GOOGLE.ANDROID_REDIRECT_URI || '';
+				break;
+			case 'ios':
+				clientId = ENVIRONMENT.GOOGLE.IOS_CLIENT_ID || ENVIRONMENT.GOOGLE.WEB_CLIENT_ID;
+				redirectUri = ENVIRONMENT.GOOGLE.IOS_REDIRECT_URI || '';
+				break;
+			default:
+				throw new AppError('Invalid platform', 400);
+		}
 
 		const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-		authUrl.searchParams.set('client_id', ENVIRONMENT.GOOGLE.CLIENT_ID);
-		authUrl.searchParams.set('redirect_uri', ENVIRONMENT.GOOGLE.REDIRECT_URI);
+		authUrl.searchParams.set('client_id', clientId);
 		authUrl.searchParams.set('response_type', 'code');
 		authUrl.searchParams.set('scope', 'openid email profile');
 		authUrl.searchParams.set('state', state);
 		authUrl.searchParams.set('access_type', 'offline');
 		authUrl.searchParams.set('prompt', 'consent');
 
-		return AppResponse(res, 200, { authUrl: authUrl.toString(), state }, 'Google auth URL generated');
+		if (['web', 'expo', 'expo-dev', 'ios'].includes(platform as string) && redirectUri) {
+			authUrl.searchParams.set('redirect_uri', redirectUri);
+		}
+
+		return AppResponse(
+			res,
+			200,
+			{
+				authUrl: authUrl.toString(),
+				state,
+				platform,
+			},
+			'Google auth URL generated'
+		);
 	});
 
 	signOut = catchAsync(async (req: Request, res: Response) => {

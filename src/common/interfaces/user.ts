@@ -26,6 +26,7 @@ export interface IUser {
 
 export interface IUserGoogle {
 	email: string;
+	picture?: string;
 	given_name?: string;
 	family_name?: string;
 	id?: string;

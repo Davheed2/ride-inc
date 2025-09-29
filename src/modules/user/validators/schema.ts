@@ -24,6 +24,7 @@ export const userModuleSchema = z
 		// 	.optional(),
 		location: z.string().optional(),
 		code: z.string().optional(),
+		platform: z.enum(['web', 'android', 'ios', 'expo', 'expo-dev']).optional(),
 	})
 	.strict();
 

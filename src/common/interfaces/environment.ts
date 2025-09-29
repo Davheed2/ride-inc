@@ -41,8 +41,15 @@ export interface IEnvironment {
 		PASSWORD: string;
 	};
 	GOOGLE: {
-		CLIENT_ID: string;
-		CLIENT_SECRET: string;
-		REDIRECT_URI: string;
+		WEB_CLIENT_ID: string;
+		WEB_CLIENT_SECRET: string;
+		WEB_REDIRECT_URI: string;
+		ANDROID_CLIENT_ID: string;
+		ANDROID_CLIENT_SECRET: string;
+		ANDROID_REDIRECT_URI: string;
+		IOS_CLIENT_ID: string;
+		IOS_CLIENT_SECRET: string;
+		IOS_REDIRECT_URI: string;
+		EXPO_REDIRECT_URI: string;
 	};
 }

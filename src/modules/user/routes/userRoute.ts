@@ -555,7 +555,213 @@ router.post('/send-otp', userController.sendOtp);
 router.post('/verify-otp', userController.verifyOtp);
 
 // OAuth
+/**
+ * @openapi
+ * /auth/google/url:
+ *   get:
+ *     summary: Generate Google OAuth URL
+ *     description: Generates a Google OAuth 2.0 authorization URL for user authentication based on the specified platform (web, expo, expo-dev, android, ios). The URL includes client ID, redirect URI, scope, and a unique state parameter for security. Returns the generated URL and related details.
+ *     tags:
+ *       - Authentication
+ *     parameters:
+ *       - in: query
+ *         name: platform
+ *         schema:
+ *           type: string
+ *           enum: [web, expo, expo-dev, android, ios]
+ *           default: web
+ *         description: The platform for which the Google OAuth URL is generated
+ *     responses:
+ *       200:
+ *         description: Google auth URL generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     authUrl:
+ *                       type: string
+ *                       example: "https://accounts.google.com/o/oauth2/v2/auth?client_id=12345-abc.apps.googleusercontent.com&response_type=code&scope=openid%20email%20profile&state=xyz123&access_type=offline&prompt=consent&redirect_uri=https://example.com/callback"
+ *                       description: The generated Google OAuth authorization URL
+ *                     state:
+ *                       type: string
+ *                       example: "xyz123"
+ *                       description: A unique state parameter for CSRF protection
+ *                     platform:
+ *                       type: string
+ *                       example: "web"
+ *                       description: The platform for which the URL was generated
+ *                 message:
+ *                   type: string
+ *                   example: "Google auth URL generated"
+ *       400:
+ *         description: Bad Request - Invalid or missing platform
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: error
+ *                 message:
+ *                   type: string
+ *                   example: "Valid platform (web, expo, expo-dev, android, ios) is required"
+ */
 router.get('/auth/google/url', userController.getGoogleAuthUrl);
+/**
+ * @openapi
+ * /auth/google:
+ *   post:
+ *     summary: Authenticate user with Google OAuth
+ *     description: Authenticates a user using a Google OAuth authorization code. Validates the code and platform, exchanges the code for an access token, retrieves user information, and either creates a new user or updates an existing one. Generates access and refresh tokens, sets them as cookies, and returns user details.
+ *     tags:
+ *       - Authentication
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               code:
+ *                 type: string
+ *                 example: "4/0AX4XfWj..."
+ *                 description: The Google OAuth authorization code
+ *               platform:
+ *                 type: string
+ *                 enum: [web, expo, expo-dev, android, ios]
+ *                 example: "web"
+ *                 description: The platform for which the authentication is performed
+ *             required:
+ *               - code
+ *               - platform
+ *     responses:
+ *       200:
+ *         description: Successfully authenticated with Google
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         format: uuid
+ *                         example: "3515368b-1c83-4fcf-b301-7db17bb7d0de"
+ *                         description: The unique identifier of the user
+ *                       email:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "uchennadavid2404@gmail.com"
+ *                         description: The user's email address
+ *                       firstName:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "David"
+ *                         description: The user's first name
+ *                       lastName:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "David"
+ *                         description: The user's last name
+ *                       photo:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "https://lh3.googleusercontent.com/a-/AOh14Gh..."
+ *                         description: URL of the user's profile picture from Google
+ *                       role:
+ *                         type: string
+ *                         example: "user"
+ *                         description: The user's role
+ *                       googleId:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "123456789012345678901"
+ *                         description: The user's Google ID
+ *                       authProvider:
+ *                         type: string
+ *                         example: "google"
+ *                         description: The authentication provider used
+ *                       isSuspended:
+ *                         type: boolean
+ *                         example: false
+ *                         description: Indicates if the user account is suspended
+ *                       isDeleted:
+ *                         type: boolean
+ *                         example: false
+ *                         description: Indicates if the user account is deleted
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2025-09-23T03:25:40.189Z"
+ *                         description: Timestamp when the user account was created
+ *                 message:
+ *                   type: string
+ *                   example: "Successfully authenticated with Google"
+ *         headers:
+ *           Set-Cookie:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: string
+ *                 example:
+ *                   - "accessToken=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; Path=/; HttpOnly"
+ *                   - "refreshToken=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; Path=/; HttpOnly"
+ *               description: Sets the access and refresh tokens as cookies
+ *       400:
+ *         description: Bad Request - Missing or invalid authorization code, platform, or Google account has no email
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: error
+ *                 message:
+ *                   type: string
+ *                   example: "Authorization code is required"
+ *       401:
+ *         description: Unauthorized - Account is suspended or email already registered with a different provider
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: error
+ *                 message:
+ *                   type: string
+ *                   example: "Your account is currently suspended"
+ *       404:
+ *         description: Not Found - User or account not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: error
+ *                 message:
+ *                   type: string
+ *                   example: "User not found"
+ */
 router.post('/auth/google', userController.googleOAuth);
 
 router.use(protect);
