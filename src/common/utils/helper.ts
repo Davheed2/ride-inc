@@ -3,7 +3,7 @@ import { randomBytes, randomInt, createHash } from 'crypto';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { encode } from 'hi-base32';
 import { ENVIRONMENT } from '../config';
-import { IHashData, ITokenFamily, OtpEmailData } from '../interfaces';
+import { IHashData, ITokenFamily, OtpEmailData, WelcomeEmailData } from '../interfaces';
 import type { Response, Request } from 'express';
 import { promisify } from 'util';
 import otpGenerator from 'otp-generator';
@@ -475,6 +475,19 @@ const sendOtpEmail = async (email: string, name: string, otp: string): Promise<v
 	});
 };
 
+const sendWelcomeEmail = async (email: string, name: string): Promise<void> => {
+	const emailData: WelcomeEmailData = {
+		to: email,
+		priority: 'high',
+		name,
+	};
+
+	addEmailToQueue({
+		type: 'welcomeEmail',
+		data: emailData,
+	});
+};
+
 export {
 	dateFromString,
 	generateRandom6DigitKey,
@@ -500,6 +513,7 @@ export {
 	formatDuration,
 	generateOtp,
 	sendOtpEmail,
+	sendWelcomeEmail,
 	getTokenFamilyKey,
 	getUsedTokenKey,
 	getUserFamiliesKey,

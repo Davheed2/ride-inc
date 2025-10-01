@@ -11,6 +11,7 @@ import {
 	invalidateUserTokenFamilies,
 	parseTokenDuration,
 	sendOtpEmail,
+	sendWelcomeEmail,
 	setCookie,
 	toJSON,
 	uploadPictureFile,
@@ -60,6 +61,8 @@ export class UserController {
 		if (!user) {
 			throw new AppError('Failed to create user', 500);
 		}
+
+		await sendWelcomeEmail(user.email, user.firstName);
 
 		return AppResponse(res, 201, toJSON([user]), 'User created successfully');
 	});

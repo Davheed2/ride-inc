@@ -1,8 +1,14 @@
-import { EmailJobData, ResetPasswordData, ForgotPasswordData, OtpEmailData } from '@/common/interfaces';
+import {
+	EmailJobData,
+	ResetPasswordData,
+	ForgotPasswordData,
+	OtpEmailData,
+	WelcomeEmailData,
+} from '@/common/interfaces';
 import { logger } from '@/common/utils';
 import nodemailer from 'nodemailer';
 import { ENVIRONMENT } from 'src/common/config';
-import { forgotPasswordEmail, otpEmail, resetPasswordEmail } from '../templates';
+import { forgotPasswordEmail, otpEmail, resetPasswordEmail, welcomeEmail } from '../templates';
 
 const transporter = nodemailer.createTransport({
 	service: 'gmail',
@@ -22,6 +28,10 @@ export const sendEmail = async (job: EmailJobData) => {
 		case 'otpEmail':
 			htmlContent = otpEmail(data as OtpEmailData);
 			subject = 'OTP Verification';
+			break;
+		case 'welcomeEmail':
+			htmlContent = welcomeEmail(data as WelcomeEmailData);
+			subject = 'Welcome to Ride!';
 			break;
 		case 'forgotPassword':
 			htmlContent = forgotPasswordEmail(data as ForgotPasswordData);
